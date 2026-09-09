@@ -105,6 +105,10 @@ class InboundOptionsPage extends HookConsumerWidget {
             inputToValue: int.tryParse,
             digitsOnly: true,
             validateInput: isPort,
+            trailing: Switch.adaptive(
+              value: ref.watch(ConfigOptions.enableDirectPort),
+              onChanged: ref.read(ConfigOptions.enableDirectPort.notifier).update,
+            ),
           ),
           ValuePreferenceWidget(
             value: ref.watch(ConfigOptions.clashApiPort),

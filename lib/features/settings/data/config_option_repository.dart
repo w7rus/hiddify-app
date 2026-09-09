@@ -138,6 +138,12 @@ abstract class ConfigOptions {
     validator: (value) => isPort(value.toString()),
   );
 
+  /// The direct inbound is a plain local listener. Unlike the mixed inbound,
+  /// sing-box's DirectInboundOptions has no Users field, so it cannot be given a
+  /// password - it can only be opened or not. Off by default; when off the port
+  /// is sent as 0 and the core skips creating the inbound entirely.
+  static final enableDirectPort = PreferencesNotifier.create<bool, bool>("enable-direct-port", false);
+
   static final tunImplementation = PreferencesNotifier.create<TunImplementation, String>(
     "tun-implementation",
     TunImplementation.gvisor,
@@ -340,6 +346,7 @@ abstract class ConfigOptions {
     "secure-mixed-inbound": secureMixedInbound,
     "tproxy-port": tproxyPort,
     "direct-port": directPort,
+    "enable-direct-port": enableDirectPort,
     "redirect-port": redirectPort,
     "tun-implementation": tunImplementation,
     "mtu": mtu,
@@ -448,7 +455,8 @@ abstract class ConfigOptions {
       mixedUsername: ref.watch(mixedUsername),
       mixedPassword: ref.watch(mixedPassword),
       tproxyPort: ref.watch(tproxyPort),
-      directPort: ref.watch(directPort),
+      // 0 makes the core skip the inbound: builder.go only creates it when > 0.
+      directPort: ref.watch(enableDirectPort) ? ref.watch(directPort) : 0,
       redirectPort: ref.watch(redirectPort),
       tunImplementation: ref.watch(tunImplementation),
       mtu: ref.watch(mtu),
