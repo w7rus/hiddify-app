@@ -434,6 +434,7 @@
         "tproxyPort": "Transparent proxy port",
         "directPort": "Direct port",
         "redirectPort": "Redirect port",
+        "enableClashApi": "Clash API",
         "allowConnectionFromLan": "Share VPN in local network"
       },
       "tlsTricks": {

@@ -18,6 +18,7 @@ class ValuePreferenceWidget<T> extends HookConsumerWidget {
     this.inputToValue,
     this.digitsOnly = false,
     this.icon,
+    this.trailing,
   });
 
   final T value;
@@ -31,12 +32,17 @@ class ValuePreferenceWidget<T> extends HookConsumerWidget {
   final bool digitsOnly;
   final IconData? icon;
 
+  /// Sits at the end of the row - used to give a port its own on/off switch
+  /// without splitting it across two tiles.
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListTile(
       title: Text(title),
       subtitle: Text(presentValue?.call(value) ?? value.toString()),
       leading: icon != null ? Icon(icon) : null,
+      trailing: trailing,
       // material: (context, platform) => MaterialListTileData(
       enabled: enabled,
 

@@ -106,6 +106,19 @@ class InboundOptionsPage extends HookConsumerWidget {
             digitsOnly: true,
             validateInput: isPort,
           ),
+          ValuePreferenceWidget(
+            value: ref.watch(ConfigOptions.clashApiPort),
+            preferences: ref.watch(ConfigOptions.clashApiPort.notifier),
+            title: t.pages.settings.inbound.enableClashApi,
+            icon: Icons.api_rounded,
+            inputToValue: int.tryParse,
+            digitsOnly: true,
+            validateInput: isPort,
+            trailing: Switch.adaptive(
+              value: ref.watch(ConfigOptions.enableClashApi),
+              onChanged: ref.read(ConfigOptions.enableClashApi.notifier).update,
+            ),
+          ),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.inbound.allowConnectionFromLan),
             secondary: const Icon(Icons.share_rounded),

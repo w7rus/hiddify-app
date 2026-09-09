@@ -173,7 +173,11 @@ abstract class ConfigOptions {
     mapTo: const IntervalInSecondsConverter().toJson,
   );
 
-  static final enableClashApi = PreferencesNotifier.create<bool, bool>("enable-clash-api", true);
+  /// Local Clash control API. It can read the running configuration, enumerate
+  /// servers and switch outbounds, so it is off unless explicitly enabled. The
+  /// cache file and monitoring it used to be bundled with are now unconditional,
+  /// so turning this off costs no functionality.
+  static final enableClashApi = PreferencesNotifier.create<bool, bool>("enable-clash-api", false);
 
   static final clashApiPort = PreferencesNotifier.create<int, int>(
     "clash-api-port",
@@ -342,6 +346,7 @@ abstract class ConfigOptions {
     "strict-route": strictRoute,
     "connection-test-url": connectionTestUrl,
     "url-test-interval": urlTestInterval,
+    "enable-clash-api": enableClashApi,
     "clash-api-port": clashApiPort,
     "bypass-lan": bypassLan,
     "allow-connection-from-lan": allowConnectionFromLan,
