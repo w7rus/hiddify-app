@@ -7,6 +7,7 @@ import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/gen/hiddify_core_generated_bindings.dart';
 import 'package:hiddify/hiddifycore/core_interface/core_interface.dart';
+import 'package:hiddify/hiddifycore/core_interface/core_token.dart';
 import 'package:hiddify/hiddifycore/core_interface/mtls_channel_cred.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore_service.pbgrpc.dart';
@@ -104,6 +105,9 @@ class CoreInterfaceDesktop extends CoreInterface with InfraLogger {
       final res = await helloClient.sayHello(HelloRequest(name: "test"));
       loggy.info(res.toString());
     }
+    // The core persists its token at setup; present it on every call so another
+    // local process cannot drive this API just by finding the port.
+    final coreToken = await readCoreToken(directories);
     bgClient = fgClient = CoreClient(
       ClientChannel(
         'localhost',
@@ -116,6 +120,7 @@ class CoreInterfaceDesktop extends CoreInterface with InfraLogger {
           // ),
         ),
       ),
+      options: coreCallOptions(coreToken),
     );
 
     return "";
