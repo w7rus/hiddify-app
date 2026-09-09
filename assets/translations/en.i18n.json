@@ -428,6 +428,9 @@
           "gvisor": "gVisor"
         },
         "mixedPort": "Mixed port",
+        "secureMixedInbound": "Secure local proxy",
+        "secureMixedInboundDescription": "Random port and credentials, so only this app can use it. Toggle off and on to re-roll them.",
+        "secureMixedInboundSystemProxyWarning": "System proxy cannot supply credentials, browsers will prompt for a login",
         "tproxyPort": "Transparent proxy port",
         "directPort": "Direct port",
         "redirectPort": "Redirect port",

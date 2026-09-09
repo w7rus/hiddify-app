@@ -8,6 +8,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:hiddify/core/analytics/analytics_controller.dart';
 import 'package:hiddify/core/app_info/app_info_provider.dart';
 import 'package:hiddify/core/directories/directories_provider.dart';
+import 'package:hiddify/core/http_client/local_proxy_identity.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/logger/logger.dart';
 import 'package:hiddify/core/logger/logger_controller.dart';
@@ -62,6 +63,11 @@ Future<void> lazyBootstrap(WidgetsBinding widgetsBinding, Environment env) async
       await container.read(sharedPreferencesProvider).requireValue.clear();
     }
   });
+
+  // After preferences are up: a fresh install has the secure local proxy on with
+  // nothing minted yet, and so does an upgrade from a build that minted per
+  // connect and persisted nothing. Idempotent otherwise.
+  await _init("local proxy identity", () => ensureLocalProxyIdentity(container.read));
 
   final debug = container.read(debugModeNotifierProvider) || kDebugMode;
 

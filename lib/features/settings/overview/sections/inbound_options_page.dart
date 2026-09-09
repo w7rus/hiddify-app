@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hiddify/core/http_client/local_proxy_identity.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
@@ -13,6 +14,7 @@ class InboundOptionsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
+    final secureMixedInbound = ref.watch(ConfigOptions.secureMixedInbound);
 
     return Scaffold(
       appBar: AppBar(title: Text(t.pages.settings.inbound.title)),
@@ -39,6 +41,32 @@ class InboundOptionsPage extends HookConsumerWidget {
             title: t.pages.settings.inbound.tunImplementation,
             icon: Icons.trip_origin_rounded,
             presentChoice: (value) => value.name,
+          ),
+          SwitchListTile.adaptive(
+            title: Text(t.pages.settings.inbound.secureMixedInbound),
+            subtitle: Text(
+              secureMixedInbound && ref.watch(ConfigOptions.serviceMode) == ServiceMode.systemProxy
+                  ? t.pages.settings.inbound.secureMixedInboundSystemProxyWarning
+                  : t.pages.settings.inbound.secureMixedInboundDescription,
+              style: secureMixedInbound && ref.watch(ConfigOptions.serviceMode) == ServiceMode.systemProxy
+                  ? TextStyle(color: Theme.of(context).colorScheme.error)
+                  : null,
+            ),
+            secondary: const Icon(Icons.lock_rounded),
+            value: secureMixedInbound,
+            // Switching on is what rolls the port and credentials; switching off
+            // puts the port back and drops them. That makes this the one place
+            // they change, so the value shown below is always the live one and
+            // re-rolling is something the user asks for rather than something
+            // that happens under a link they already handed out.
+            onChanged: (bool value) async {
+              await ref.read(ConfigOptions.secureMixedInbound.notifier).update(value);
+              if (value) {
+                await mintLocalProxyIdentity(ref.read);
+              } else {
+                await clearLocalProxyIdentity(ref.read);
+              }
+            },
           ),
           ValuePreferenceWidget(
             value: ref.watch(ConfigOptions.mixedPort),
@@ -88,10 +116,16 @@ class InboundOptionsPage extends HookConsumerWidget {
                 final ip = await NetworkInfo().getWifiIP();
                 // final ipp = Networkinfo
                 if (ip == null) return;
-                final port = ref.read(ConfigOptions.mixedPort);
-                final link = '#profile-title: LAN only\nsocks://$ip:$port#LAN only';
-                final message = 'socks://$ip:$port';
-                await ref.read(dialogNotifierProvider.notifier).showQrCode(link, message: message);
+                // Carry the credentials. The core gates this one inbound on them,
+                // and the bind list is exclusive, so LAN sharing publishes the
+                // *same* authenticated listener - a bare socks://ip:port link is
+                // one no device on the network could authenticate with.
+                final username = ref.read(ConfigOptions.mixedUsername);
+                final password = ref.read(ConfigOptions.mixedPassword);
+                final userinfo = username.isEmpty || password.isEmpty ? '' : '$username:$password@';
+                final target = 'socks://$userinfo$ip:${ref.read(ConfigOptions.mixedPort)}';
+                final link = '#profile-title: LAN only\n$target#LAN only';
+                await ref.read(dialogNotifierProvider.notifier).showQrCode(link, message: target);
               }
             },
           ),

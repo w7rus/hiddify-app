@@ -109,6 +109,19 @@ abstract class ConfigOptions {
     validator: (value) => isPort(value.toString()),
   );
 
+  /// Binds the mixed inbound to a random high port behind random per-session
+  /// credentials, so local processes that merely find the port cannot tunnel
+  /// through it. Turn off for System Proxy mode, which cannot supply credentials.
+  static final secureMixedInbound = PreferencesNotifier.create<bool, bool>("secure-mixed-inbound", true);
+
+  /// Credentials for the mixed inbound, minted when [secureMixedInbound] is
+  /// switched on and then kept - see mintLocalProxyIdentity. Empty means the
+  /// inbound is open. Deliberately absent from [preferences]: an imported config
+  /// must not be able to set the gate on this app's own proxy, and "reset all"
+  /// must not silently unlock it.
+  static final mixedUsername = PreferencesNotifier.create<String, String>("mixed-username", "");
+  static final mixedPassword = PreferencesNotifier.create<String, String>("mixed-password", "");
+
   static final tproxyPort = PreferencesNotifier.create<int, int>(
     "tproxy-port",
     12335,
@@ -292,6 +305,10 @@ abstract class ConfigOptions {
 
   /// preferences to exclude from share and export
   static final privatePreferencesKeys = {
+    // Live credentials for the local inbound - exported JSON gets pasted into
+    // support threads, and these are the gate on the app's own proxy.
+    "mixed-username",
+    "mixed-password",
     "warp.license-key",
     "warp.access-token",
     "warp.account-id",
@@ -316,6 +333,7 @@ abstract class ConfigOptions {
     "direct-dns-address": directDnsAddress,
     "direct-dns-domain-strategy": directDnsDomainStrategy,
     "mixed-port": mixedPort,
+    "secure-mixed-inbound": secureMixedInbound,
     "tproxy-port": tproxyPort,
     "direct-port": directPort,
     "redirect-port": redirectPort,
@@ -422,6 +440,8 @@ abstract class ConfigOptions {
       directDnsAddress: ref.watch(directDnsAddress),
       directDnsDomainStrategy: ref.watch(directDnsDomainStrategy),
       mixedPort: ref.watch(mixedPort),
+      mixedUsername: ref.watch(mixedUsername),
+      mixedPassword: ref.watch(mixedPassword),
       tproxyPort: ref.watch(tproxyPort),
       directPort: ref.watch(directPort),
       redirectPort: ref.watch(redirectPort),
@@ -501,7 +521,13 @@ class ConfigOptionRepository with ExceptionHandler, InfraLogger {
       Either.tryCatch(() => _getConfigOptions(), ConfigOptionFailure.unexpected).flatMap(
         (options) => Either.tryCatch(() {
           final json = ProfileParser.applyProfileOverride(options.toJson(), profileOverride);
-          return SingboxConfigOption.fromJson(json);
+          // A profile override must not be able to move the local inbound or strip
+          // its credentials - that would hand the app's own proxy to anyone.
+          return SingboxConfigOption.fromJson(json).copyWith(
+            mixedPort: options.mixedPort,
+            mixedUsername: options.mixedUsername,
+            mixedPassword: options.mixedPassword,
+          );
         }, ConfigOptionFailure.unexpected),
       );
 }
