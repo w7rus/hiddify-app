@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/utils/platform_utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:loggy/loggy.dart';
 
@@ -79,6 +80,34 @@ Future<void> ensureLocalProxyIdentity(ProviderReader read) async {
     return;
   }
   await mintLocalProxyIdentity(read);
+}
+
+/// Gives this install its own TUN subnet, once.
+///
+/// Upstream hardcodes 172.19.0.1/28 and fdfe:dcba:9876::1/126, so every install
+/// carries the same tunnel subnet and anything inspecting local routes can tell
+/// which software is running. These are generated on first connect and then kept:
+/// the address has to stay stable, since routes and the tunnel's DNS hang off it.
+///
+/// Skipped on iOS, where the packet tunnel's addresses are configured separately
+/// in the native extension and must keep matching it.
+Future<void> ensureTunAddresses(Ref ref) async {
+  if (PlatformUtils.isIOS) return;
+  final random = Random.secure();
+  if (ref.read(ConfigOptions.tunAddressV4).isEmpty) {
+    // 172.16.0.0/12, the same space upstream already uses, so this changes the
+    // value without changing which addresses can collide with a local network.
+    final b = 16 + random.nextInt(16);
+    final c = random.nextInt(256);
+    final d = random.nextInt(16) * 16 + 1;
+    await ref.read(ConfigOptions.tunAddressV4.notifier).update('172.$b.$c.$d/28');
+  }
+  if (ref.read(ConfigOptions.tunAddressV6).isEmpty) {
+    String group() => random.nextInt(0x10000).toRadixString(16).padLeft(4, '0');
+    // fd00::/8 unique local address with a random global ID.
+    final globalId = random.nextInt(256).toRadixString(16).padLeft(2, '0');
+    await ref.read(ConfigOptions.tunAddressV6.notifier).update('fd$globalId:${group()}:${group()}:${group()}::1/126');
+  }
 }
 
 Future<int> _pickFreeHighPort() async {

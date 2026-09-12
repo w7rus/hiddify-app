@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:hiddify/core/http_client/local_proxy_identity.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/core/utils/exception_handler.dart';
@@ -79,9 +80,11 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
 
   @override
   TaskEither<ConnectionFailure, Unit> connect(ProfileEntity activeProfile, bool disableMemoryLimit) => setup().flatMap(
-    (_) => applyConfigOption(activeProfile).flatMap(
-      (_) => singbox.start(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit),
-      // .mapLeft(UnexpectedConnectionFailure.new),
+    (_) => _ensureTunAddresses().flatMap(
+      (_) => applyConfigOption(activeProfile).flatMap(
+        (_) => singbox.start(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit),
+        // .mapLeft(UnexpectedConnectionFailure.new),
+      ),
     ),
   );
 
@@ -90,12 +93,22 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
 
   @override
   TaskEither<ConnectionFailure, Unit> reconnect(ProfileEntity activeProfile, bool disableMemoryLimit) =>
-      applyConfigOption(activeProfile).flatMap(
-        (_) => singbox
-            .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
-            .mapLeft(UnexpectedConnectionFailure.new),
+      _ensureTunAddresses().flatMap(
+        (_) => applyConfigOption(activeProfile).flatMap(
+          (_) => singbox
+              .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
+              .mapLeft(UnexpectedConnectionFailure.new),
+        ),
       );
 
+  /// Gives this install its own TUN subnet on first connect. Must run before
+  /// [applyConfigOption], so the generated values are the ones the core receives.
+  /// The local proxy's port and credentials are not minted here - they are minted
+  /// when the secure local proxy option is switched on, and then kept.
+  TaskEither<ConnectionFailure, Unit> _ensureTunAddresses() => TaskEither.tryCatch(() async {
+    await ensureTunAddresses(ref);
+    return unit;
+  }, UnexpectedConnectionFailure.new);
   @visibleForTesting
   TaskEither<ConnectionFailure, Unit> applyConfigOption(ProfileEntity prof) =>
       TaskEither.fromEither(configOptionRepository.fullOptionsOverrided(prof.profileOverride))

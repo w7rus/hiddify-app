@@ -29,6 +29,8 @@ class SingboxConfigOption with _$SingboxConfigOption {
     required String directDnsAddress,
     required DomainStrategy directDnsDomainStrategy,
     required int mixedPort,
+    @Default('') String tunAddressV4,
+    @Default('') String tunAddressV6,
     @Default('') String mixedUsername,
     @Default('') String mixedPassword,
     required int tproxyPort,
