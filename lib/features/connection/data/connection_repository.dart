@@ -105,6 +105,9 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   /// [applyConfigOption], so the values the core builds the inbound with are the
   /// same ones the app's own HTTP client will present.
   TaskEither<ConnectionFailure, Unit> _refreshLocalProxySession() => TaskEither.tryCatch(() async {
+    // Give this install its own TUN subnet on first connect, before the options
+    // are built, so the generated values are the ones the core receives.
+    await ensureTunAddresses(ref);
     await ref.read(localProxySessionProvider.notifier).regenerate();
     return unit;
   }, UnexpectedConnectionFailure.new);

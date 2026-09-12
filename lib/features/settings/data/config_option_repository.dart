@@ -111,6 +111,13 @@ abstract class ConfigOptions {
     validator: (value) => isPort(value.toString()),
   );
 
+  /// Per-install TUN addresses. The upstream constants (172.19.0.1/28 and
+  /// fdfe:dcba:9876::1/126) are identical on every install, so the tunnel's own
+  /// subnet identifies the software. Generated once and kept, because the
+  /// address has to stay stable for routes and DNS to keep working.
+  static final tunAddressV4 = PreferencesNotifier.create<String, String>("tun-address-v4", "");
+  static final tunAddressV6 = PreferencesNotifier.create<String, String>("tun-address-v6", "");
+
   /// Binds the mixed inbound to a random high port behind random per-session
   /// credentials, so local processes that merely find the port cannot tunnel
   /// through it. Turn off for System Proxy mode, which cannot supply credentials.
@@ -384,6 +391,8 @@ abstract class ConfigOptions {
     "direct-dns-address": directDnsAddress,
     "direct-dns-domain-strategy": directDnsDomainStrategy,
     "mixed-port": mixedPort,
+    "tun-address-v4": tunAddressV4,
+    "tun-address-v6": tunAddressV6,
     "secure-mixed-inbound": secureMixedInbound,
     "tproxy-port": tproxyPort,
     "direct-port": directPort,
@@ -504,6 +513,8 @@ abstract class ConfigOptions {
       directDnsDomainStrategy: ref.watch(directDnsDomainStrategy),
       // Port and credentials come from the session, not straight from preferences:
       // with hardening on they are minted per core start and never persisted.
+      tunAddressV4: ref.watch(tunAddressV4),
+      tunAddressV6: ref.watch(tunAddressV6),
       mixedPort: proxySession.port,
       mixedUsername: proxySession.username,
       mixedPassword: proxySession.password,
