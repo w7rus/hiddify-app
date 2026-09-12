@@ -10,6 +10,7 @@ import 'package:hiddify/features/connection/data/connection_data_providers.dart'
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/singbox/model/singbox_config_option.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hiddify/utils/platform_utils.dart';
 import 'package:json_path/json_path.dart';
@@ -26,7 +27,16 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
 
     ref.listen(ConfigOptions.singboxConfigOptions, (previous, next) async {
       if (!serviceRunning || previous == null) return;
-      if (next != previous && next != serviceSingboxOptions) {
+      // The local proxy session is re-minted on every (re)connect, so with
+      // hardening on it differs after each reconnect by design. Comparing it here
+      // would make any settings change reconnect forever.
+      SingboxConfigOption? ignoringProxySession(SingboxConfigOption? options) {
+        if (options == null || !ref.read(ConfigOptions.secureMixedInbound)) return options;
+        return options.copyWith(mixedPort: 0, mixedUsername: '', mixedPassword: '');
+      }
+
+      final nextKey = ignoringProxySession(next);
+      if (nextKey != ignoringProxySession(previous) && nextKey != ignoringProxySession(serviceSingboxOptions)) {
         if (_lastUpdate == null || DateTime.now().difference(_lastUpdate!) > const Duration(milliseconds: 100)) {
           _lastUpdate = DateTime.now();
           if (serviceSingboxOptions?.enableTun != next.enableTun) {

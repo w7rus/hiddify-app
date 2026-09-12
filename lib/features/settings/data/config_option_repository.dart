@@ -1,5 +1,6 @@
 import 'package:dartx/dartx.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:hiddify/core/http_client/local_proxy_session.dart';
 import 'package:hiddify/core/model/optional_range.dart';
 import 'package:hiddify/core/model/region.dart';
 import 'package:hiddify/core/utils/exception_handler.dart';
@@ -109,6 +110,12 @@ abstract class ConfigOptions {
     12334,
     validator: (value) => isPort(value.toString()),
   );
+
+  /// Binds the mixed inbound to a random high port behind random per-session
+  /// credentials, so local processes that merely find the port cannot tunnel
+  /// through it. Turn off for System Proxy mode, which cannot supply credentials.
+  static final secureMixedInbound = PreferencesNotifier.create<bool, bool>("secure-mixed-inbound", true);
+
   static final tproxyPort = PreferencesNotifier.create<int, int>(
     "tproxy-port",
     12335,
@@ -345,6 +352,10 @@ abstract class ConfigOptions {
 
   /// preferences to exclude from share and export
   static final privatePreferencesKeys = {
+    // Live credentials for the local inbound - exported JSON gets pasted into
+    // support threads, and these are the gate on the app's own proxy.
+    "mixed-username",
+    "mixed-password",
     "extra-security.warp.license-key",
     "unblocker.warp.license-key",
     "lan-sharing-password",
@@ -364,6 +375,7 @@ abstract class ConfigOptions {
     "direct-dns-address": directDnsAddress,
     "direct-dns-domain-strategy": directDnsDomainStrategy,
     "mixed-port": mixedPort,
+    "secure-mixed-inbound": secureMixedInbound,
     "tproxy-port": tproxyPort,
     "direct-port": directPort,
     "redirect-port": redirectPort,
@@ -425,6 +437,7 @@ abstract class ConfigOptions {
   static final singboxConfigOptions = Provider<SingboxConfigOption>((ref) {
     // final region = ref.watch(Preferences.region);
     // final rules = <SingboxRule>[];
+    final proxySession = ref.watch(localProxySessionProvider);
     // final rules = switch (region) {
     //   Region.ir => [
     //       const SingboxRule(
@@ -479,7 +492,11 @@ abstract class ConfigOptions {
       remoteDnsDomainStrategy: ref.watch(remoteDnsDomainStrategy),
       directDnsAddress: ref.watch(directDnsAddress),
       directDnsDomainStrategy: ref.watch(directDnsDomainStrategy),
-      mixedPort: ref.watch(mixedPort),
+      // Port and credentials come from the session, not straight from preferences:
+      // with hardening on they are minted per core start and never persisted.
+      mixedPort: proxySession.port,
+      mixedUsername: proxySession.username,
+      mixedPassword: proxySession.password,
       tproxyPort: ref.watch(tproxyPort),
       directPort: ref.watch(directPort),
       redirectPort: ref.watch(redirectPort),
@@ -563,7 +580,13 @@ class ConfigOptionRepository with ExceptionHandler, InfraLogger {
       Either.tryCatch(() => _getConfigOptions(), ConfigOptionFailure.unexpected).flatMap(
         (options) => Either.tryCatch(() {
           final json = ProfileParser.applyProfileOverride(options.toJson(), profileOverride);
-          return SingboxConfigOption.fromJson(json);
+          // A profile override must not be able to move the local inbound or strip
+          // its credentials - that would hand the app's own proxy to anyone.
+          return SingboxConfigOption.fromJson(json).copyWith(
+            mixedPort: options.mixedPort,
+            mixedUsername: options.mixedUsername,
+            mixedPassword: options.mixedPassword,
+          );
         }, ConfigOptionFailure.unexpected),
       );
 }

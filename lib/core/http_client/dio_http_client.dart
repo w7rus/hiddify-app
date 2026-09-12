@@ -33,13 +33,15 @@ class DioHttpClient with InfraLogger {
         createHttpClient: () {
           final client = HttpClient();
           client.findProxy = (url) {
-            if (mode == "proxy") {
-              return "PROXY localhost:$port";
-            } else if (mode == "direct") {
-              return "DIRECT";
-            } else {
-              return "PROXY localhost:$port; DIRECT";
-            }
+            if (mode == "direct") return "DIRECT";
+            // Dart accepts a `user:pass@host:port` userinfo part here and sends
+            // Proxy-Authorization proactively, for plain requests and CONNECT alike.
+            final authority = _isAuthenticated ? "$username:$password@localhost:$port" : "localhost:$port";
+            if (mode == "proxy") return "PROXY $authority";
+            // No DIRECT fallback once credentials are in play: offering a direct
+            // route for a request that carries proxy credentials is wrong, and
+            // isPortOpen already found the proxy up.
+            return _isAuthenticated ? "PROXY $authority" : "PROXY $authority; DIRECT";
           };
           return client;
         },
@@ -52,6 +54,12 @@ class DioHttpClient with InfraLogger {
   }
 
   int port = 0;
+
+  /// Credentials for the core's mixed inbound. Empty when the inbound is open.
+  String username = '';
+  String password = '';
+
+  bool get _isAuthenticated => username.isNotEmpty && password.isNotEmpty;
 
   String userAgent;
   // bool isPortOpen(String host, int port, {Duration timeout = const Duration(milliseconds: 200)}) async{
@@ -78,9 +86,12 @@ class DioHttpClient with InfraLogger {
     }
   }
 
-  void setProxyPort(int port) {
+  /// Credentials are never logged.
+  void setProxy(int port, String username, String password) {
     this.port = port;
-    loggy.debug("setting proxy port: [$port]");
+    this.username = username;
+    this.password = password;
+    loggy.debug("setting proxy: port [$port], authenticated [$_isAuthenticated]");
   }
 
   Future<Response<T>> get<T>(

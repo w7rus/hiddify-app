@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hiddify/core/http_client/local_proxy_session.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/widget/lan_sharing_tile.dart';
@@ -12,6 +13,8 @@ class InboundOptionsPage extends HookConsumerWidget with AppLogger {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
+    final secureMixedInbound = ref.watch(ConfigOptions.secureMixedInbound);
+    final session = ref.watch(localProxySessionProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(t.pages.settings.inbound.title)),
@@ -39,16 +42,43 @@ class InboundOptionsPage extends HookConsumerWidget with AppLogger {
             icon: Icons.trip_origin_rounded,
             presentChoice: (value) => value.name,
           ),
-          ValuePreferenceWidget(
-            value: ref.watch(ConfigOptions.mixedPort),
-            preferences: ref.watch(ConfigOptions.mixedPort.notifier),
-            title: t.pages.settings.inbound.mixedPort,
-            icon: Icons.device_hub_rounded,
-            inputToValue: int.tryParse,
-            digitsOnly: true,
-            validateInput: isPort,
-            trailing: SwitchPreferenceWidget(preference: ConfigOptions.enableMixedPort),
+          SwitchListTile.adaptive(
+            title: Text(t.pages.settings.inbound.secureMixedInbound),
+            subtitle: Text(
+              secureMixedInbound && ref.watch(ConfigOptions.serviceMode) == ServiceMode.systemProxy
+                  ? t.pages.settings.inbound.secureMixedInboundSystemProxyWarning
+                  : t.pages.settings.inbound.secureMixedInboundDescription,
+              style: secureMixedInbound && ref.watch(ConfigOptions.serviceMode) == ServiceMode.systemProxy
+                  ? TextStyle(color: Theme.of(context).colorScheme.error)
+                  : null,
+            ),
+            secondary: const Icon(Icons.lock_rounded),
+            value: secureMixedInbound,
+            onChanged: ref.read(ConfigOptions.secureMixedInbound.notifier).update,
           ),
+          if (secureMixedInbound)
+            ListTile(
+              leading: const Icon(Icons.device_hub_rounded),
+              title: Text(t.pages.settings.inbound.mixedPort),
+              // Before the first connect there is no live port yet - the seed value
+              // is just the configured fallback, so don't present it as the real one.
+              subtitle: Text(
+                session.minted
+                    ? t.pages.settings.inbound.mixedPortRandomized(port: session.port)
+                    : t.pages.settings.inbound.mixedPortAssignedOnConnect,
+              ),
+            )
+          else
+            ValuePreferenceWidget(
+              value: ref.watch(ConfigOptions.mixedPort),
+              preferences: ref.watch(ConfigOptions.mixedPort.notifier),
+              title: t.pages.settings.inbound.mixedPort,
+              icon: Icons.device_hub_rounded,
+              inputToValue: int.tryParse,
+              digitsOnly: true,
+              validateInput: isPort,
+              trailing: SwitchPreferenceWidget(preference: ConfigOptions.enableMixedPort),
+            ),
           if (PlatformUtils.isLinux)
             ValuePreferenceWidget(
               value: ref.watch(ConfigOptions.tproxyPort),

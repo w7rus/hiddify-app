@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:hiddify/core/http_client/local_proxy_session.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
@@ -79,9 +80,11 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
 
   @override
   TaskEither<ConnectionFailure, Unit> connect(ProfileEntity activeProfile, bool disableMemoryLimit) => setup().flatMap(
-    (_) => applyConfigOption(activeProfile).flatMap(
-      (_) => singbox.start(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit),
-      // .mapLeft(UnexpectedConnectionFailure.new),
+    (_) => _refreshLocalProxySession().flatMap(
+      (_) => applyConfigOption(activeProfile).flatMap(
+        (_) => singbox.start(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit),
+        // .mapLeft(UnexpectedConnectionFailure.new),
+      ),
     ),
   );
 
@@ -90,11 +93,21 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
 
   @override
   TaskEither<ConnectionFailure, Unit> reconnect(ProfileEntity activeProfile, bool disableMemoryLimit) =>
-      applyConfigOption(activeProfile).flatMap(
-        (_) => singbox
-            .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
-            .mapLeft(UnexpectedConnectionFailure.new),
+      _refreshLocalProxySession().flatMap(
+        (_) => applyConfigOption(activeProfile).flatMap(
+          (_) => singbox
+              .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
+              .mapLeft(UnexpectedConnectionFailure.new),
+        ),
       );
+
+  /// Mints a fresh port + credentials for the local mixed inbound. Must run before
+  /// [applyConfigOption], so the values the core builds the inbound with are the
+  /// same ones the app's own HTTP client will present.
+  TaskEither<ConnectionFailure, Unit> _refreshLocalProxySession() => TaskEither.tryCatch(() async {
+    await ref.read(localProxySessionProvider.notifier).regenerate();
+    return unit;
+  }, UnexpectedConnectionFailure.new);
 
   @visibleForTesting
   TaskEither<ConnectionFailure, Unit> applyConfigOption(ProfileEntity prof) =>
