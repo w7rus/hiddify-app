@@ -7,6 +7,7 @@ import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/utils/laststeam.dart';
 import 'package:hiddify/hiddifycore/core_interface/core_interface.dart';
+import 'package:hiddify/hiddifycore/core_interface/core_token.dart';
 import 'package:hiddify/hiddifycore/core_interface/mtls_channel_cred.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore_service.pbgrpc.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hello/hello.pb.dart';
@@ -81,12 +82,16 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     // var chanelOption = ChannelOptions(
     //   credentials: MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientPrivateKey: cert.privateKey as ECPrivateKey),
     // );
+    // The core persists its token at setup; present it on every call so another
+    // app on the device cannot drive this API just by finding the port.
+    final coreToken = await readCoreToken(directories);
     fgClient = CoreClient(
       ClientChannel(
         '127.0.0.1',
         port: portFront,
         options: ChannelOptions(credentials: channelOption),
       ),
+      options: coreCallOptions(coreToken),
     );
 
     bgClient = CoreClient(
@@ -95,6 +100,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
         port: portBack,
         options: ChannelOptions(credentials: channelOption),
       ),
+      options: coreCallOptions(coreToken),
     );
     // await start("/sdcard/Android/data/app.hiddify.com/files/configs/cdc633e9-8cfc-4a67-948d-009f779a5c91.json", "hiddify");
     return "";
