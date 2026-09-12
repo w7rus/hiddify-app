@@ -111,6 +111,20 @@ class InboundOptionsPage extends HookConsumerWidget with AppLogger {
             validateInput: isPort,
             trailing: SwitchPreferenceWidget(preference: ConfigOptions.enableDirectPort),
           ),
+          SwitchListTile.adaptive(
+            title: Text(t.pages.settings.inbound.enableClashApi),
+            subtitle: Text(
+              ref.watch(ConfigOptions.enableClashApi)
+                  ? t.pages.settings.inbound.enableClashApiWarning
+                  : t.pages.settings.inbound.enableClashApiDescription,
+              style: ref.watch(ConfigOptions.enableClashApi)
+                  ? TextStyle(color: Theme.of(context).colorScheme.error)
+                  : null,
+            ),
+            secondary: const Icon(Icons.api_rounded),
+            value: ref.watch(ConfigOptions.enableClashApi),
+            onChanged: ref.read(ConfigOptions.enableClashApi.notifier).update,
+          ),
           const LanSharingPreferenceWidget(),
         ],
       ),
