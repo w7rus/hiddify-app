@@ -135,7 +135,12 @@ abstract class ConfigOptions {
   static final enableMixedPort = PreferencesNotifier.create<bool, bool>("enable-mixed-port", true);
   static final enableTproxyPort = PreferencesNotifier.create<bool, bool>("enable-tproxy-port", true);
   static final enableRedirectPort = PreferencesNotifier.create<bool, bool>("enable-redirect-port", true);
-  static final enableDirectPort = PreferencesNotifier.create<bool, bool>("enable-direct-port", true);
+
+  /// The direct inbound is a plain local listener. Unlike the mixed inbound,
+  /// sing-box's DirectInboundOptions has no Users field, so it cannot be given a
+  /// password - it can only be opened or not. Off by default; when off the port
+  /// is sent as 0 and the core skips creating the inbound entirely.
+  static final enableDirectPort = PreferencesNotifier.create<bool, bool>("enable-direct-port", false);
 
   static final tunImplementation = PreferencesNotifier.create<TunImplementation, String>(
     "tun-implementation",
@@ -503,7 +508,8 @@ abstract class ConfigOptions {
       mixedUsername: proxySession.username,
       mixedPassword: proxySession.password,
       tproxyPort: ref.watch(tproxyPort),
-      directPort: ref.watch(directPort),
+      // 0 makes the core skip the inbound: builder.go only creates it when > 0.
+      directPort: ref.watch(enableDirectPort) ? ref.watch(directPort) : 0,
       redirectPort: ref.watch(redirectPort),
       enableMixedPort: ref.watch(enableMixedPort),
       enableTproxyPort: ref.watch(enableTproxyPort),

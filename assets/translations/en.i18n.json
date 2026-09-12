@@ -442,6 +442,7 @@
         "secureMixedInboundSystemProxyWarning": "System proxy cannot supply credentials, browsers will prompt for a login",
         "tproxyPort": "Transparent proxy port",
         "directPort": "Direct port",
+        "directPortWarning": "Opens a local port that cannot be password protected",
         "redirectPort": "Redirect port",
         "enableClashApi": "Clash API",
         "enableClashApiDescription": "Off, so no local control API is exposed",

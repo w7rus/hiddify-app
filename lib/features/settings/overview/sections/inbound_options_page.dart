@@ -111,6 +111,16 @@ class InboundOptionsPage extends HookConsumerWidget with AppLogger {
             validateInput: isPort,
             trailing: SwitchPreferenceWidget(preference: ConfigOptions.enableDirectPort),
           ),
+          // The direct inbound takes no credentials, so the switch above is the
+          // only control over it. Say what turning it on costs.
+          if (ref.watch(ConfigOptions.enableDirectPort))
+            ListTile(
+              leading: Icon(Icons.warning_amber_rounded, color: Theme.of(context).colorScheme.error),
+              title: Text(
+                t.pages.settings.inbound.directPortWarning,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.inbound.enableClashApi),
             subtitle: Text(
